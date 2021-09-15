@@ -1,0 +1,26 @@
+/*.aboutus, .companytext, .companytable {*/
+/*    margin-left:100px;*/
+/*    margin-right: 50px;*/
+/*}*/
+
+.aboutus {
+    margin-top: 20px;
+    font-size: 30px;
+}
+
+.companytable {
+    border-spacing: 20px;
+}
+.companytable td{
+    padding: 0.5rem;
+}
+.products-container{
+    margin: 0 100px;
+}
+.about-commesk-logo{
+    width: 270px;
+}
+.table-products tbody td{
+    cursor: pointer;
+}
+

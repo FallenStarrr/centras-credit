@@ -1,0 +1,115 @@
+stages:
+  - upload
+  - build
+  - build-docker
+  - deploy-docker
+  - vendor
+
+image: registry-backend.cic.kz/centras/ckl:latest
+
+.upload:
+  when: manual
+  tags:
+    - docker
+  script: |
+    echo $FTP_HOST $FTP_USERNAME $FTP_PASSWORD
+    lftp -e "                                 \
+        open $FTP_HOST;                   \
+                                          \
+        user $FTP_USERNAME $FTP_PASSWORD; \
+                                          \
+        mirror -X .* -X .*/        \
+            --reverse              \
+            --verbose              \
+            --exclude .idea        \
+            --exclude public       \
+            --exclude tests        \
+            --exclude vendor       \
+            --exclude node_modules \
+            --exclude package.json \
+       --exclude package-lock.json \
+                                   \
+            ./ ./ \
+        ;                          \
+                                   \
+        bye "
+
+
+
+.build:
+  when: manual
+  tags:
+    - docker
+  script:
+    # - npm i
+    # - npm run dev
+    - lftp -e "open $FTP_HOST; user $FTP_USERNAME $FTP_PASSWORD; mirror -X .* -X .*/ --exclude storage --exclude filemanager --exclude filemanager2 --reverse --verbose --delete ./public ./public bye"
+  cache:
+    key: $CI_COMMIT_REF_SLUG
+    paths:
+      - .npm
+      - node_modules
+  variables:
+    npm_config_cache: ${CI_PROJECT_DIR}/.npm
+
+.vendor:
+  when: manual
+  tags:
+    - docker
+  script:
+    - php -v
+    - php composer.phar install
+    - lftp -e "open $FTP_HOST; user $FTP_USERNAME $FTP_PASSWORD; mirror -X .* -X .*/ --reverse --verbose --delete ./vendor ./vendor bye"
+  artifacts:
+    paths:
+      - vendor
+    expire_in: 1 week
+
+build-master:
+  extends: .build
+  stage: build
+  only:
+    - master
+  variables:
+    FTP_DIRECTORY: .
+
+upload-master:
+  extends: .upload
+  stage: upload
+  only:
+    - master
+  variables:
+    FTP_DIRECTORY: .
+
+vendor-master:
+  when: manual
+  extends: .vendor
+  stage: vendor
+  only:
+    - master
+  variables:
+    FTP_DIRECTORY: .
+
+
+
+
+
+build-docker:
+  stage: build-docker
+  # https://www.cloudsigma.com/deploying-laravel-nginx-and-mysql-with-docker-compose/
+  # https://www.digitalocean.com/community/tutorials/how-to-set-up-laravel-nginx-and-mysql-with-docker-compose-ru
+  script: |
+    docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    docker build --cache-from $CI_REGISTRY_IMAGE:master --tag $CI_REGISTRY_IMAGE:master .
+    docker push $CI_REGISTRY_IMAGE:master
+
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}-vendors
+    paths:
+      - /root/shared
+
+deploy-docker:
+  stage: deploy-docker
+  script: |
+    rancher up -d --stack CentrasCredit --file .deploy/docker-compose.yml --rancher-file .deploy/rancher-compose.yml
+    rancher up -d --file .deploy/docker-compose.yml --rancher-file .deploy/rancher-compose.yml --force-upgrade --pull --stack CentrasCredit --confirm-upgrade app

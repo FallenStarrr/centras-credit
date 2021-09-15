@@ -1,0 +1,49 @@
+version: '2'
+
+networks:
+  app_network:
+    driver: bridge
+
+services:
+  app:
+    build:
+      context: .
+    container_name: app
+    hostname: app
+    command: ["php", "artisan", "serve", "--host=0.0.0.0"]
+
+    ports:
+      - "8000:8000"
+
+    volumes:
+      - .:/app
+
+    environment:
+      - APP_DEBUG=true
+      - APP_KEY=base64:SaYfcUjht1j8/4uJ810xTHG46S/yLjQ/AkYPJJWhsNQ=
+      - APP_ENV=local
+      - APP_URL=http://localhost:8000
+
+      - DB_CONNECTION=mysql
+      - DB_HOST=db
+      - DB_USERNAME=root
+      - DB_PASSWORD=
+      - DB_PORT=3306
+      - DB_DATABASE=application
+
+      - REDIS_HOST=redis
+      - CACHE_DRIVER=file
+      - QUEUE_CONNECTION=sync
+
+      - MAIL_MAILER=smtp
+      - MAIL_HOST=mailtrap
+      - MAIL_PORT=25
+      - MAIL_USERNAME=mailtrap
+      - MAIL_PASSWORD=mailtrap
+      - MAIL_ENCRYPTION=null
+      - MAIL_FROM_ADDRESS=laravel@mycompany.com
+      - MAIL_FROM_NAME=Laravel
+
+      - Main_domain=localhost
+      - www_domain=localhost:8000
+      - BEELINE=beeline:8000

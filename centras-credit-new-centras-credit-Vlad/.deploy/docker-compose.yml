@@ -1,0 +1,163 @@
+version: '2'
+
+networks:
+  app_network:
+    driver: bridge
+
+services:
+  app:
+    image: reg.cic.kz/centras/centras-credit:master
+    container_name: app
+    hostname: app
+    labels:
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.affinity:host_label: name=kupipolis
+
+    command:
+      - php artisan serve --host=0.0.0.0
+
+    environment:
+      - APP_DEBUG=true
+      - APP_KEY=base64:SaYfcUjht1j8/4uJ810xTHG46S/yLjQ/AkYPJJWhsNQ=
+      - APP_ENV=local
+      - APP_URL=https://centrascredit.kz/
+
+      - DB_CONNECTION=mysql
+      - DB_HOST=db
+      - DB_USERNAME=root
+      - DB_PASSWORD=
+      - DB_PORT=3306
+      - DB_DATABASE=application
+
+      - REDIS_HOST=redis
+      - CACHE_DRIVER=file
+      - QUEUE_CONNECTION=sync
+
+      - MAIL_MAILER=smtp
+      - MAIL_HOST=mailtrap
+      - MAIL_PORT=25
+      - MAIL_USERNAME=mailtrap
+      - MAIL_PASSWORD=mailtrap
+      - MAIL_ENCRYPTION=null
+      - MAIL_FROM_ADDRESS=laravel@mycompany.com
+      - MAIL_FROM_NAME=Laravel
+
+    networks:
+      - app_network
+
+    depends_on:
+      - db
+
+  nginx:
+    image: reg.cic.kz/centras/nginx:latest
+    container_name: Nginx
+    hostname: nginx
+
+    volumes:
+      - ./.nginx:/etc/nginx/conf.d:ro
+
+    # volumes_from:
+    #   - app
+
+    networks:
+      - app_network
+
+    depends_on:
+      - app
+
+    labels:
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.affinity:host_label: name=kupipolis
+
+  db:
+    image: reg.cic.kz/centras/mysql:5.7
+    container_name: db
+    hostname: db
+
+    networks:
+      - app_network
+
+    volumes:
+      - /etc/docker/volumes/db/larakup:/var/lib/mysql
+
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=true
+      - MYSQL_DATABASE=application
+
+    labels:
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.affinity:host_label: name=kupipolis
+
+  redis:
+    image: reg.cic.kz/centras/redis:latest
+
+    networks:
+      - app_network
+
+    # volumes:
+    #  - app_redis:/data
+
+  larakup-lb:
+    image: rancher/lb-service-haproxy:v0.9.14
+    ports:
+    - 7777:7777/tcp
+    labels:
+      io.rancher.container.agent.role: environmentAdmin,agent
+      io.rancher.container.agent_service.drain_provider: 'true'
+      io.rancher.container.create_agent: 'true'
+
+  tools-lb:
+    image: rancher/lb-service-haproxy:v0.9.14
+    ports:
+    - 8082:8082/tcp
+    - 8083:8083/tcp
+    - 8086:8086/tcp
+    labels:
+      io.rancher.container.agent.role: environmentAdmin,agent
+      io.rancher.container.agent_service.drain_provider: 'true'
+      io.rancher.container.create_agent: 'true'
+
+  pma:
+    image: reg.cic.kz/centras/phpmyadmin:latest
+    container_name: pma
+    privileged: true
+
+    links:
+      - db
+
+    environment:
+      - PMA_HOST=db
+      - PMA_USER=root
+      - PMA_PASSWORD=
+
+    restart: unless-stopped
+    tty: true
+
+    networks:
+      - app_network
+
+
+  # PHPRedisAdmin
+  pra:
+    image: reg.cic.kz/centras/phpredisadmin:latest
+    container_name: pra
+    restart: unless-stopped
+
+    environment:
+      - REDIS_1_HOST=redis
+      - REDIS_1_NAME=AppRedis
+
+    links:
+      - redis
+
+    networks:
+      - app_network
+
+  # Перехватчик писем (нужен для локальной разработки)
+  mailtrap:
+    image: reg.cic.kz/centras/mailtrap:latest
+    container_name: mailtrap
+    restart: unless-stopped
+
+    networks:
+      - app_network
