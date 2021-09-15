@@ -182,7 +182,7 @@ export function Aboutme() {
       {/***********************************  Card  ************************************ */}
 
       <Row gutter={26} className="white-section-2">
-        
+
         <Col span={8}>
           <section className="white-section white-section-2-card-small card">
             <Image src="image 5.png"></Image>
@@ -294,6 +294,7 @@ export function Aboutme() {
                 marginTop: "20px",
               }}
             >
+              
               Потратить Сенткоины
             </Button>
           </section>
